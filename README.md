@@ -1,43 +1,51 @@
-# HTTP Metadata Inventory
+# Metadata Inventory
 
-A FastAPI service that collects and caches HTTP metadata (headers, cookies, and page source) for any given URL, backed by MongoDB.
+A simple FastAPI service that collects and stores HTTP metadata (headers, cookies, and page source) for any given URL. MongoDB is used as a cache so the same URL doesn’t need to be fetched again and again.
 
-## Architecture
+---
 
-```
-┌─────────────┐      ┌──────────────┐      ┌──────────┐
-│  Client      │─────▶│  FastAPI API  │─────▶│  MongoDB  │
-│  (HTTP)      │◀─────│  (uvicorn)   │◀─────│          │
-└─────────────┘      └──────┬───────┘      └──────────┘
-                            │
-                     ┌──────▼───────┐
-                     │  Background   │
-                     │  Worker       │
-                     │  (asyncio)    │
-                     └──────────────┘
-```
+## Project Structure
 
-**Key components:**
+Here’s a quick overview of how the project is organized:
 
-- **`app/config.py`** — Settings via environment variables (pydantic-settings)
-- **`app/database.py`** — MongoDB connection lifecycle and collection access
-- **`app/models.py`** — Pydantic models for validation and serialization
-- **`app/services.py`** — Business logic: fetch metadata, store/retrieve from DB
-- **`app/worker.py`** — Async background task orchestration (no external queues)
-- **`app/routes.py`** — API endpoint definitions
-- **`app/main.py`** — FastAPI app with lifespan management
+- `app/config.py`  
+  Handles configuration using environment variables.
 
-## Quick Start
+- `app/database.py`  
+  Manages MongoDB connection and provides collection access.
 
-### Prerequisites
+- `app/models.py`  
+  Contains Pydantic models for request/response validation.
 
-- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- `app/services.py`  
+  Core logic for fetching metadata and interacting with the database.
 
-### Run the service
+- `app/worker.py`  
+  Handles background tasks using asyncio (no external queue needed).
+
+- `app/routes.py`  
+  Defines the API endpoints.
+
+- `app/main.py`  
+  Entry point of the FastAPI application.
+
+---
+
+## Prerequisites
+
+Make sure you have the following installed:
+
+- Docker  
+- Docker Compose  
+
+---
+
+## Running the Service
+
+Start everything using Docker:
 
 ```bash
 docker-compose up --build
-```
 
 The API will be available at **http://localhost:8000**.
 
@@ -78,16 +86,16 @@ Collect metadata for a given URL immediately.
 
 Retrieve cached metadata for a URL.
 
-**Cache hit (200 OK):** Returns the full metadata record.
+**Cache hit 200 OK:** Returns the full metadata record.
 
-**Cache miss (202 Accepted):**
-```json
+**Cache miss 202 Accepted:**
+JSON format 
 {
   "message": "Request accepted. Metadata collection has been queued.",
   "url": "https://example.com",
   "status": "pending"
 }
-```
+
 
 The metadata will be collected asynchronously in the background. Subsequent GET requests will return the data once collection is complete.
 
@@ -95,40 +103,35 @@ The metadata will be collected asynchronously in the background. Subsequent GET 
 
 Health check endpoint. Returns `{"status": "healthy"}`.
 
-## Configuration
 
-| Environment Variable | Default                     | Description                    |
-|---------------------|-----------------------------|--------------------------------|
-| `MONGODB_URI`       | `mongodb://localhost:27017` | MongoDB connection string      |
-| `MONGODB_DB_NAME`   | `metadata_inventory`        | Database name                  |
-| `REQUEST_TIMEOUT`   | `10.0`                      | HTTP request timeout (seconds) |
 
-## Running Tests
+### Mongo Db testing Configuration ###
+MONGODB_URI	     mongodb://localhost:27017	Connection string for MongoDB
+MONGODB_DB_NAME	 metadata_inventory	Name of the database being used
 
-### With Docker (recommended)
 
-```bash
+
+
+
+
+### Use this bash command locally into your system if dont have docker run in windoes wsl run these tests locally 
 docker-compose run --rm api python -m pytest -v
 ```
 
-### Locally
+
+## Installing Dependencies
+
+To run this locally, install the required packages and execute the tests:
 
 ```bash
 pip install -r requirements.txt
 python -m pytest -v
-```
 
-Tests use `mongomock-motor` to mock MongoDB — no running database is required.
+A few choices made while building this:
 
-## Design Decisions
-
-- **Async background tasks via `asyncio.create_task`**: No external message queue needed. Tasks are deduplicated per URL to avoid redundant work.
-- **Upsert strategy**: `store_metadata` uses MongoDB `update_one` with `upsert=True` to handle both inserts and updates, preventing duplicate documents.
-- **Unique index on `url`**: Ensures fast lookups and data integrity at the database level.
-- **Separation of concerns**: Routes handle HTTP, services handle business logic, worker handles orchestration — each layer is independently testable.
-- **Non-root Docker user**: The container runs as `appuser` for security best practices.
-- **Health checks on MongoDB**: Docker Compose waits for MongoDB to be ready before starting the API.
-
-## License
-
-MIT
+Background tasks are handled using asyncio.create_task, so there’s no need to bring in something like Redis or Celery. Also added a simple check to avoid running duplicate tasks for the same URL.
+For storing data, MongoDB’s update_one with upsert=True is used. This keeps things simple by handling both insert and update in one go and avoids duplicate records.
+There’s a unique index on the url field to make lookups faster and ensure data consistency.
+The code is split in a way that keeps responsibilities clear — routes handle API stuff, services contain the core logic, and the worker manages background execution. Makes it easier to test and maintain.
+The Docker container runs as a non-root user (appuser) just to follow basic security practices.
+Added a health check for MongoDB so that the API only starts once the database is actually ready.
