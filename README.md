@@ -31,6 +31,10 @@ Here’s a quick overview of how the project is organized:
 
 ---
 
+# Architecture Diagram
+
+![alt text](image.png)
+
 ## Prerequisites
 
 Make sure you have the following installed:
