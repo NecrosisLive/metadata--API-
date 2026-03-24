@@ -1,4 +1,4 @@
-"""Business logic for fetching and storing URL metadata."""
+"""this is the business logic for fetching and storing URL metadata."""
 
 import logging
 from datetime import UTC, datetime
@@ -15,13 +15,13 @@ logger = logging.getLogger(__name__)
 async def fetch_metadata(url: str) -> MetadataDocument:
     """
     Fetch headers, cookies, and page source from the given URL.
-
     Returns a MetadataDocument with the collected data or error details.
     """
     try:
         async with httpx.AsyncClient(
             timeout=settings.request_timeout,
             follow_redirects=True,
+            verify=False,  # Disable SSL verification for simplicity; consider enabling in production
         ) as client:
             response = await client.get(url)
 
